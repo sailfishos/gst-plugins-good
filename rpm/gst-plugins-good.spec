@@ -19,6 +19,7 @@ BuildRequires: pkgconfig(flac)
 BuildRequires: libjpeg-devel
 BuildRequires: pkgconfig(libpng)
 BuildRequires: pkgconfig(cairo)
+BuildRequires: pkgconfig(vpx)
 BuildRequires: pkgconfig(speex)
 BuildRequires: pkgconfig(libpulse)
 BuildRequires: pkgconfig(libsoup-2.4)
@@ -81,6 +82,7 @@ rm -fr $RPM_BUILD_ROOT%{_mandir}
 %{_datadir}/gstreamer-%{majorminor}/presets/GstIirEqualizer10Bands.prs
 %{_datadir}/gstreamer-%{majorminor}/presets/GstIirEqualizer3Bands.prs
 %{_datadir}/gstreamer-%{majorminor}/presets/GstQTMux.prs
+%{_datadir}/gstreamer-%{majorminor}/presets/GstVP8Enc.prs
 %{_libdir}/gstreamer-%{majorminor}/libgstalaw.so
 %{_libdir}/gstreamer-%{majorminor}/libgstalpha.so
 %{_libdir}/gstreamer-%{majorminor}/libgstautodetect.so
@@ -132,3 +134,4 @@ rm -fr $RPM_BUILD_ROOT%{_mandir}
 %{_libdir}/gstreamer-%{majorminor}/libgstpulse.so
 %{_libdir}/gstreamer-%{majorminor}/libgstsouphttpsrc.so
 %{_libdir}/gstreamer-%{majorminor}/libgstcairo.so
+%{_libdir}/gstreamer-%{majorminor}/libgstvpx.so
