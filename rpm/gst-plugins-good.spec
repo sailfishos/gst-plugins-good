@@ -2,7 +2,7 @@
 %define gstreamer   gstreamer
 
 Name: 		%{gstreamer}%{majorminor}-plugins-good
-Version: 	1.10.4
+Version: 	1.12.4
 Release: 	1
 Summary: 	GStreamer plug-ins with good code and licensing
 Group: 		Applications/Multimedia
@@ -64,7 +64,7 @@ NOCONFIGURE=1 ./autogen.sh
   --disable-y4m \
   --disable-taglib
 
-make %{?jobs:-j%jobs}
+make %{?_smp_mflags}
 
 %install
 %make_install
@@ -129,6 +129,7 @@ rm -fr $RPM_BUILD_ROOT%{_mandir}
 %{_libdir}/gstreamer-%{majorminor}/libgstjpeg.so
 %{_libdir}/gstreamer-%{majorminor}/libgstpng.so
 %{_libdir}/gstreamer-%{majorminor}/libgstspeex.so
-%{_libdir}/gstreamer-%{majorminor}/libgstpulse.so
-%{_libdir}/gstreamer-%{majorminor}/libgstsouphttpsrc.so
+%{_libdir}/gstreamer-%{majorminor}/libgstpulseaudio.so
+%{_libdir}/gstreamer-%{majorminor}/libgstsoup.so
 %{_libdir}/gstreamer-%{majorminor}/libgstcairo.so
+
