@@ -4,12 +4,12 @@
 %global _vpath_srcdir subprojects/gst-plugins-good
 %global _vpath_builddir subprojects/gst-plugins-good/_build
 
-Name: 		%{gstreamer}%{majorminor}-plugins-good
-Version: 	1.20.10
-Release: 	1
-Summary: 	GStreamer plug-ins with good code and licensing
-License: 	LGPLv2+
-URL:		http://gstreamer.freedesktop.org/
+Name:           %{gstreamer}%{majorminor}-plugins-good
+Version:        1.24.3
+Release:        1
+Summary:        GStreamer plug-ins with good code and licensing
+License:        LGPLv2+
+URL:            http://gstreamer.freedesktop.org/
 Source:         %{name}-%{version}.tar.xz
 Patch0:         0001-Set-specific-media.role-for-pulsesink-probe.patch
 Patch1:         0002-qtmux-write-rotation-information-into-the-TKHD-matri.patch
@@ -24,7 +24,8 @@ BuildRequires: pkgconfig(libpng)
 BuildRequires: pkgconfig(cairo)
 BuildRequires: pkgconfig(speex)
 BuildRequires: pkgconfig(libpulse)
-BuildRequires: pkgconfig(libsoup-2.4)
+BuildRequires: pkgconfig(libsoup-3.0)
+BuildRequires: pkgconfig(libxml-2.0)
 BuildRequires: pkgconfig(vpx)
 BuildRequires: pkgconfig(libmpg123)
 BuildRequires: pkgconfig(gudev-1.0)
@@ -67,6 +68,8 @@ plug-ins.
   -Dqt6=disabled \
   -Dximagesrc=disabled \
   -Daalib=disabled \
+  -Damrnb=disabled \
+  -Damrwbdec=disabled \
   -Dgdk-pixbuf=disabled -Dgtk3=disabled \
   -Djack=disabled \
   -Dlame=disabled -Dtwolame=disabled \
