@@ -15,7 +15,7 @@ stream can be distinguished from resulting stream more easily.
  1 file changed, 17 insertions(+), 1 deletion(-)
 
 diff --git a/subprojects/gst-plugins-good/ext/pulse/pulsesink.c b/subprojects/gst-plugins-good/ext/pulse/pulsesink.c
-index c0ffff388e005d67e80643000b49370cb936504e..95e87604b854f907461963dde8f51ec6a8ff78c0 100644
+index 348150dd87ed9ef5dcac197eec150fbec6524bbf..d029b7f17a9fc2669202357f6bd22e5ba6000d5f 100644
 --- a/subprojects/gst-plugins-good/ext/pulse/pulsesink.c
 +++ b/subprojects/gst-plugins-good/ext/pulse/pulsesink.c
 @@ -2083,11 +2083,21 @@ gst_pulsesink_create_probe_stream (GstPulseSink * psink,
