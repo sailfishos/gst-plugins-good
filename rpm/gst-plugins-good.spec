@@ -5,7 +5,7 @@
 %global _vpath_builddir subprojects/gst-plugins-good/_build
 
 Name:           %{gstreamer}%{majorminor}-plugins-good
-Version:        1.24.6
+Version:        1.24.10
 Release:        1
 Summary:        GStreamer plug-ins with good code and licensing
 License:        LGPLv2+
@@ -94,7 +94,6 @@ rm -f $RPM_BUILD_ROOT%{_libdir}/*.la
 rm -fr $RPM_BUILD_ROOT%{_mandir}
 
 %files
-%defattr(-, root, root)
 %license subprojects/gst-plugins-good/COPYING
 %dir %{_datadir}/gstreamer-%{majorminor}/presets
 %{_datadir}/gstreamer-%{majorminor}/presets/GstIirEqualizer10Bands.prs
