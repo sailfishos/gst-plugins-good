@@ -5,11 +5,11 @@
 %global _vpath_builddir subprojects/gst-plugins-good/_build
 
 Name:           %{gstreamer}%{majorminor}-plugins-good
-Version:        1.24.10
+Version:        1.26.2
 Release:        1
 Summary:        GStreamer plug-ins with good code and licensing
 License:        LGPLv2+
-URL:            http://gstreamer.freedesktop.org/
+URL:            https://github.com/sailfishos/gst-plugins-good
 Source:         %{name}-%{version}.tar.xz
 Patch0:         0001-Set-specific-media.role-for-pulsesink-probe.patch
 Patch1:         0002-qtmux-write-rotation-information-into-the-TKHD-matri.patch
@@ -54,32 +54,32 @@ plug-ins.
 %meson \
   -Dpackage-name='SailfishOS GStreamer package plugins (good set)' \
   -Dpackage-origin='http://sailfishos.org/' \
-  -Dnls=disabled \
-  -Ddoc=disabled \
-  -Dexamples=disabled \
-  -Dorc=enabled \
-  -Dvpx=enabled \
-  -Dv4l2-probe=false \
-  -Dv4l2-libv4l2=disabled \
-  -Doss=disabled -Doss4=disabled \
-  -Dy4m=disabled \
-  -Dtaglib=disabled \
-  -Dqt5=disabled \
-  -Dqt6=disabled \
-  -Dximagesrc=disabled \
   -Daalib=disabled \
   -Damrnb=disabled \
   -Damrwbdec=disabled \
+  -Ddoc=disabled \
+  -Ddv=disabled \
+  -Ddv1394=disabled \
+  -Dexamples=disabled \
   -Dgdk-pixbuf=disabled -Dgtk3=disabled \
   -Djack=disabled \
   -Dlame=disabled -Dtwolame=disabled \
   -Dlibcaca=disabled \
-  -Ddv=disabled \
-  -Ddv1394=disabled \
-  -Dshout2=disabled \
-  -Dwavpack=disabled \
   -Dmonoscope=disabled \
-  -Drpicamsrc=disabled
+  -Dnls=disabled \
+  -Dorc=enabled \
+  -Doss=disabled -Doss4=disabled \
+  -Dqt5=disabled \
+  -Dqt6=disabled \
+  -Drpicamsrc=disabled \
+  -Dshout2=disabled \
+  -Dtaglib=disabled \
+  -Dv4l2-probe=false \
+  -Dv4l2-libv4l2=disabled \
+  -Dvpx=enabled \
+  -Dwavpack=disabled \
+  -Dximagesrc=disabled \
+  -Dy4m=disabled
 
 %meson_build
 
