@@ -16,10 +16,10 @@ Based on the work of Andrew den Exter <andrew.den.exter@jollamobile.com>
  3 files changed, 56 insertions(+)
 
 diff --git a/subprojects/gst-plugins-good/gst/isomp4/atoms.c b/subprojects/gst-plugins-good/gst/isomp4/atoms.c
-index f46876f1cf3ce2e06484cca2f1352a7f61a18599..b791096f456bfccaa0f1c203f76daccd44d74e8f 100644
+index 7ace379aa2063f6e1c00e684eb6aaa66329d4c5b..e685d33e68949e25be41d6d25277e6a67593f0fe 100644
 --- a/subprojects/gst-plugins-good/gst/isomp4/atoms.c
 +++ b/subprojects/gst-plugins-good/gst/isomp4/atoms.c
-@@ -4467,6 +4467,37 @@ atom_trak_set_subtitle_type (AtomTRAK * trak, AtomsContext * context,
+@@ -4528,6 +4528,37 @@ atom_trak_set_subtitle_type (AtomTRAK * trak, AtomsContext * context,
    return tx3g;
  }
  
@@ -58,10 +58,10 @@ index f46876f1cf3ce2e06484cca2f1352a7f61a18599..b791096f456bfccaa0f1c203f76daccd
  atom_mfhd_init (AtomMFHD * mfhd, guint32 sequence_number)
  {
 diff --git a/subprojects/gst-plugins-good/gst/isomp4/atoms.h b/subprojects/gst-plugins-good/gst/isomp4/atoms.h
-index 7fa5382241604e8133886883236202eb4672fb6a..996c1152f7f3031eb57fe223d1b80f585291bc15 100644
+index 4c0badb4b3baa7a33586b5c00e6a89442c0f6046..ec7d58936f32963513178c32aa8721db0e861049 100644
 --- a/subprojects/gst-plugins-good/gst/isomp4/atoms.h
 +++ b/subprojects/gst-plugins-good/gst/isomp4/atoms.h
-@@ -1069,6 +1069,8 @@ SampleTableEntryMP4V * atom_trak_set_video_type (AtomTRAK * trak, AtomsContext *
+@@ -1070,6 +1070,8 @@ SampleTableEntryMP4V * atom_trak_set_video_type (AtomTRAK * trak, AtomsContext *
  SampleTableEntryTX3G * atom_trak_set_subtitle_type (AtomTRAK * trak, AtomsContext * context,
                                 SubtitleSampleEntry * entry);
  
@@ -71,10 +71,10 @@ index 7fa5382241604e8133886883236202eb4672fb6a..996c1152f7f3031eb57fe223d1b80f58
  atom_trak_set_timecode_type (AtomTRAK * trak, AtomsContext * context, guint trak_timescale, GstVideoTimeCode * tc);
  
 diff --git a/subprojects/gst-plugins-good/gst/isomp4/gstqtmux.c b/subprojects/gst-plugins-good/gst/isomp4/gstqtmux.c
-index acdd8a9e1ed4e19ccebf9f557326ce0802241dd4..42da827054ad414a7c984ed9b71f24dede59bfeb 100644
+index d500d2b2c365c35f5bdb44edff64ebd354a646ef..d82d25c4c85891357d8ccace88d9e79ac76e1bb2 100644
 --- a/subprojects/gst-plugins-good/gst/isomp4/gstqtmux.c
 +++ b/subprojects/gst-plugins-good/gst/isomp4/gstqtmux.c
-@@ -7153,6 +7153,7 @@ gst_qt_mux_sink_event (GstAggregator * agg, GstAggregatorPad * agg_pad,
+@@ -7164,6 +7164,7 @@ gst_qt_mux_sink_event (GstAggregator * agg, GstAggregatorPad * agg_pad,
        GstTagSetter *setter = GST_TAG_SETTER (qtmux);
        GstTagMergeMode mode;
        gchar *code;
@@ -82,7 +82,7 @@ index acdd8a9e1ed4e19ccebf9f557326ce0802241dd4..42da827054ad414a7c984ed9b71f24de
  
        GST_OBJECT_LOCK (qtmux);
        mode = gst_tag_setter_get_tag_merge_mode (setter);
-@@ -7191,6 +7192,28 @@ gst_qt_mux_sink_event (GstAggregator * agg, GstAggregatorPad * agg_pad,
+@@ -7202,6 +7203,28 @@ gst_qt_mux_sink_event (GstAggregator * agg, GstAggregatorPad * agg_pad,
          g_free (code);
        }
  
