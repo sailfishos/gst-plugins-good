@@ -1,0 +1,43 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Matti=20Lehtim=C3=A4ki?= <matti.lehtimaki@jolla.com>
+Date: Fri, 20 Feb 2026 01:47:48 +0200
+Subject: [PATCH] qml: Fix build with Qt 5.6
+
+---
+ subprojects/gst-plugins-good/ext/qt/gstqtglutility.cc | 4 ++--
+ subprojects/gst-plugins-good/ext/qt/gstqtglutility.h  | 2 ++
+ 2 files changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/subprojects/gst-plugins-good/ext/qt/gstqtglutility.cc b/subprojects/gst-plugins-good/ext/qt/gstqtglutility.cc
+index a9d2f38fe35cbb0087b3a35307bf42970d7b4775..3eb8244c9494bc0b4d6b42548ffcc735d4c8c20c 100644
+--- a/subprojects/gst-plugins-good/ext/qt/gstqtglutility.cc
++++ b/subprojects/gst-plugins-good/ext/qt/gstqtglutility.cc
+@@ -327,7 +327,7 @@ qt_opengl_native_context_from_gst_gl_context (GstGLContext * context)
+                 "on wayland. See https://bugreports.qt.io/browse/QTBUG-82528");
+             gst_object_unref (display_egl);
+             gst_object_unref (display);
+-            return QVariant::fromValue(nullptr);
++            return QVariant();
+ #else
+             if (display_egl)
+                 egl_display = (EGLDisplay) gst_gl_display_get_handle ((GstGLDisplay *) display_egl);
+@@ -356,5 +356,5 @@ qt_opengl_native_context_from_gst_gl_context (GstGLContext * context)
+           platform_s);
+       g_free (platform_s);
+     }
+-    return QVariant::fromValue(nullptr);
++    return QVariant();
+ }
+diff --git a/subprojects/gst-plugins-good/ext/qt/gstqtglutility.h b/subprojects/gst-plugins-good/ext/qt/gstqtglutility.h
+index 7b02bca7a7bfc729f0eb0ff0c423c23dbc42ab74..8ba32ae6f67c49204f397a41bd36ea23e9bd6255 100644
+--- a/subprojects/gst-plugins-good/ext/qt/gstqtglutility.h
++++ b/subprojects/gst-plugins-good/ext/qt/gstqtglutility.h
+@@ -24,6 +24,8 @@
+ #include <gst/gst.h>
+ #include <gst/gl/gl.h>
+ 
++#include <functional>
++
+ #include <QVariant>
+ #include <QRunnable>
+ 

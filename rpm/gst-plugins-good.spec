@@ -13,6 +13,7 @@ URL:            http://gstreamer.freedesktop.org/
 Source:         %{name}-%{version}.tar.xz
 Patch0:         0001-Set-specific-media.role-for-pulsesink-probe.patch
 Patch1:         0002-qtmux-write-rotation-information-into-the-TKHD-matri.patch
+Patch2:         0003-qml-Fix-build-with-Qt-5.6.patch
 
 %define sonamever %(echo %{version} | cut -d '+' -f 1)
 
@@ -31,6 +32,12 @@ BuildRequires: pkgconfig(libmpg123)
 BuildRequires: pkgconfig(gudev-1.0)
 BuildRequires: pkgconfig(gstreamer-plugins-base-1.0) >= %{sonamever}
 BuildRequires: pkgconfig(orc-0.4) >= 0.4.18
+BuildRequires: pkgconfig(Qt5Core)
+BuildRequires: pkgconfig(Qt5Gui)
+BuildRequires: pkgconfig(Qt5Qml)
+BuildRequires: pkgconfig(Qt5Quick)
+BuildRequires: pkgconfig(Qt5WaylandClient)
+BuildRequires: qt5-qttools-linguist
 BuildRequires: bzip2-devel
 BuildRequires: meson
 BuildRequires: libtool
@@ -64,7 +71,8 @@ plug-ins.
   -Doss=disabled -Doss4=disabled \
   -Dy4m=disabled \
   -Dtaglib=disabled \
-  -Dqt5=disabled \
+  -Dqt5=enabled \
+  -Dqt-x11=disabled \
   -Dqt6=disabled \
   -Dximagesrc=disabled \
   -Daalib=disabled \
@@ -138,6 +146,7 @@ rm -fr $RPM_BUILD_ROOT%{_mandir}
 %{_libdir}/gstreamer-%{majorminor}/libgstnavigationtest.so
 %{_libdir}/gstreamer-%{majorminor}/libgstpng.so
 %{_libdir}/gstreamer-%{majorminor}/libgstpulseaudio.so
+%{_libdir}/gstreamer-%{majorminor}/libgstqmlgl.so
 %{_libdir}/gstreamer-%{majorminor}/libgstreplaygain.so
 %{_libdir}/gstreamer-%{majorminor}/libgstrtpmanager.so
 %{_libdir}/gstreamer-%{majorminor}/libgstrtp.so
