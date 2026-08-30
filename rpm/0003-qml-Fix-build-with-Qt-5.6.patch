@@ -9,10 +9,10 @@ Subject: [PATCH] qml: Fix build with Qt 5.6
  2 files changed, 4 insertions(+), 2 deletions(-)
 
 diff --git a/subprojects/gst-plugins-good/ext/qt/gstqtglutility.cc b/subprojects/gst-plugins-good/ext/qt/gstqtglutility.cc
-index a9d2f38fe35cbb0087b3a35307bf42970d7b4775..3eb8244c9494bc0b4d6b42548ffcc735d4c8c20c 100644
+index edc62ca2303ec89a17134ecec848b1fa6e6f9255..3c03151f8a38af56d4cfa70bfcda2e5f5412924b 100644
 --- a/subprojects/gst-plugins-good/ext/qt/gstqtglutility.cc
 +++ b/subprojects/gst-plugins-good/ext/qt/gstqtglutility.cc
-@@ -327,7 +327,7 @@ qt_opengl_native_context_from_gst_gl_context (GstGLContext * context)
+@@ -336,7 +336,7 @@ qt_opengl_native_context_from_gst_gl_context (GstGLContext * context)
                  "on wayland. See https://bugreports.qt.io/browse/QTBUG-82528");
              gst_object_unref (display_egl);
              gst_object_unref (display);
@@ -21,7 +21,7 @@ index a9d2f38fe35cbb0087b3a35307bf42970d7b4775..3eb8244c9494bc0b4d6b42548ffcc735
  #else
              if (display_egl)
                  egl_display = (EGLDisplay) gst_gl_display_get_handle ((GstGLDisplay *) display_egl);
-@@ -356,5 +356,5 @@ qt_opengl_native_context_from_gst_gl_context (GstGLContext * context)
+@@ -365,5 +365,5 @@ qt_opengl_native_context_from_gst_gl_context (GstGLContext * context)
            platform_s);
        g_free (platform_s);
      }
