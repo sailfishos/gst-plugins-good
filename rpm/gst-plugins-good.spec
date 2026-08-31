@@ -5,7 +5,7 @@
 %global _vpath_builddir subprojects/gst-plugins-good/_build
 
 Name:           %{gstreamer}%{majorminor}-plugins-good
-Version:        1.26.11
+Version:        1.28.6
 Release:        1
 Summary:        GStreamer plug-ins with good code and licensing
 License:        LGPLv2+
