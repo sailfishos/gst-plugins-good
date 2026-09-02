@@ -1,0 +1,371 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Micha=C5=82=20Szczepaniak?= <m.szczepaniak.000@gmail.com>
+Date: Wed, 2 Sep 2026 18:09:48 +0200
+Subject: [PATCH] qml: rewrap the GL context when Qt recreates it
+
+QtGLVideoItem wraps the render thread's QOpenGLContext once, in
+onSceneGraphInitialized(), and never revisits it.  Qt can destroy and
+recreate that context without tearing down the scene graph - on SailfishOS
+this happens whenever the display blanks, and the QOpenGLContext object is
+reused, only the platform context behind it is replaced - so neither the
+qt_context identity guard nor sceneGraphInvalidated() ever fires.  The
+item, the sink and the GL elements upstream of it all keep referring to a
+context that no longer exists.  Binding an unknown texture name raises no
+GL error, it just creates an empty texture under that name, so the video
+simply turns black.
+
+Hook QOpenGLContext::aboutToBeDestroyed(), emitted from
+QOpenGLContext::destroy() before doneCurrent() and so while the context is
+still current, and release the wrapped contexts there.  updatePaintNode()
+rewraps on the first frame drawn with the replacement context.
+
+The sink is then handed the new context by
+gst_qt_sink_invalidate_gl_resources(), which announces it to the pipeline
+as a "gst.gl.app_context" GstContext - the type this sink already answers
+GST_QUERY_CONTEXT with - so glupload/glcolorconvert replace the one they
+cached, and pushes a reconfigure event so the sink's buffer pool is
+recreated against it.  No element's state is touched and the application is
+not involved.  Requires the matching gst-plugins-base fix to
+GstGLBaseFilter::set_context(), which otherwise ignores an app context
+arriving on an unchanged display.
+
+GstQtSink::context/qt_context are mutable while PLAYING as a result, so
+gst_qt_sink_query() and gst_qt_sink_propose_allocation() now take a
+reference under the object lock instead of using them bare.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+---
+ .../gst-plugins-good/ext/qt/gstqtsink.cc      | 131 ++++++++++++++++--
+ .../gst-plugins-good/ext/qt/gstqtsink.h       |   2 +
+ subprojects/gst-plugins-good/ext/qt/qtitem.cc |  67 +++++++++
+ subprojects/gst-plugins-good/ext/qt/qtitem.h  |   3 +
+ 4 files changed, 193 insertions(+), 10 deletions(-)
+
+diff --git a/subprojects/gst-plugins-good/ext/qt/gstqtsink.cc b/subprojects/gst-plugins-good/ext/qt/gstqtsink.cc
+index 48e9949e6b..903dc0b7f3 100644
+--- a/subprojects/gst-plugins-good/ext/qt/gstqtsink.cc
++++ b/subprojects/gst-plugins-good/ext/qt/gstqtsink.cc
+@@ -313,8 +313,28 @@ gst_qt_sink_query (GstBaseSink * bsink, GstQuery * query)
+   switch (GST_QUERY_TYPE (query)) {
+     case GST_QUERY_CONTEXT:
+     {
+-      if (gst_gl_handle_context_query ((GstElement *) qt_sink, query,
+-          qt_sink->display, qt_sink->context, qt_sink->qt_context))
++      GstGLDisplay *display;
++      GstGLContext *context, *qt_context;
++      gboolean handled;
++
++      /* the render thread can replace these while we are playing */
++      GST_OBJECT_LOCK (qt_sink);
++      display = qt_sink->display ?
++          (GstGLDisplay *) gst_object_ref (qt_sink->display) : NULL;
++      context = qt_sink->context ?
++          (GstGLContext *) gst_object_ref (qt_sink->context) : NULL;
++      qt_context = qt_sink->qt_context ?
++          (GstGLContext *) gst_object_ref (qt_sink->qt_context) : NULL;
++      GST_OBJECT_UNLOCK (qt_sink);
++
++      handled = gst_gl_handle_context_query ((GstElement *) qt_sink, query,
++          display, context, qt_context);
++
++      gst_clear_object (&display);
++      gst_clear_object (&context);
++      gst_clear_object (&qt_context);
++
++      if (handled)
+         return TRUE;
+ 
+     }
+@@ -468,18 +488,104 @@ gst_qt_sink_show_frame (GstVideoSink * vsink, GstBuffer * buf)
+   return GST_FLOW_OK;
+ }
+ 
++static GstElement *
++gst_qt_sink_find_pipeline (GstElement * element)
++{
++  GstElement *current = GST_ELEMENT_CAST (gst_object_ref (element));
++
++  while (current && !GST_IS_PIPELINE (current)) {
++    GstElement *parent =
++        GST_ELEMENT_CAST (gst_object_get_parent (GST_OBJECT_CAST (current)));
++
++    gst_object_unref (current);
++    current = parent;
++  }
++
++  return current;
++}
++
++/* upstream GL elements cache the context they were given at startup, so hand
++ * them the new one the same way - on a bin that means all of its children */
++static void
++gst_qt_sink_announce_gl_context (GstQtSink * qt_sink, GstGLContext * context)
++{
++  GstElement *pipeline = gst_qt_sink_find_pipeline (GST_ELEMENT_CAST (qt_sink));
++  GstContext *app_context;
++
++  if (!pipeline) {
++    GST_WARNING_OBJECT (qt_sink, "not in a pipeline, cannot announce context");
++    return;
++  }
++
++  app_context = gst_context_new ("gst.gl.app_context", TRUE);
++  gst_structure_set (gst_context_writable_structure (app_context),
++      "context", GST_TYPE_GL_CONTEXT, context, NULL);
++
++  gst_element_set_context (pipeline, app_context);
++
++  gst_context_unref (app_context);
++  gst_object_unref (pipeline);
++}
++
++void
++gst_qt_sink_invalidate_gl_resources (GstQtSink * qt_sink)
++{
++  GstGLContext *context, *qt_context, *old_context, *old_qt_context;
++
++  g_return_if_fail (GST_IS_QT_SINK (qt_sink));
++
++  if (!qt_sink->widget)
++    return;
++
++  context = qt_sink->widget->getContext ();
++  qt_context = qt_sink->widget->getQtContext ();
++
++  if (!context || !qt_context) {
++    GST_WARNING_OBJECT (qt_sink, "widget has no GL context to adopt yet");
++    gst_clear_object (&context);
++    gst_clear_object (&qt_context);
++    return;
++  }
++
++  GST_DEBUG_OBJECT (qt_sink, "adopting GL context %" GST_PTR_FORMAT, context);
++
++  GST_OBJECT_LOCK (qt_sink);
++  old_context = qt_sink->context;
++  old_qt_context = qt_sink->qt_context;
++  qt_sink->context = context;
++  qt_sink->qt_context = qt_context;
++  GST_OBJECT_UNLOCK (qt_sink);
++
++  gst_clear_object (&old_context);
++  gst_clear_object (&old_qt_context);
++
++  gst_qt_sink_announce_gl_context (qt_sink, qt_context);
++
++  /* run propose_allocation () again, for a buffer pool in the new context */
++  gst_pad_push_event (GST_BASE_SINK_PAD (qt_sink),
++      gst_event_new_reconfigure ());
++}
++
+ static gboolean
+ gst_qt_sink_propose_allocation (GstBaseSink * bsink, GstQuery * query)
+ {
+   GstQtSink *qt_sink = GST_QT_SINK (bsink);
++  GstGLContext *context;
+   GstBufferPool *pool;
+   GstStructure *config;
+   GstCaps *caps;
+   guint size;
+   gboolean need_pool;
++  gboolean ret = FALSE;
+ 
+-  if (!qt_sink->display || !qt_sink->context)
+-    return FALSE;
++  /* the render thread can replace this while we are playing */
++  GST_OBJECT_LOCK (qt_sink);
++  context = qt_sink->display && qt_sink->context ?
++      (GstGLContext *) gst_object_ref (qt_sink->context) : NULL;
++  GST_OBJECT_UNLOCK (qt_sink);
++
++  if (!context)
++    goto done;
+ 
+   gst_query_parse_allocation (query, &caps, &need_pool);
+ 
+@@ -518,7 +624,7 @@ gst_qt_sink_propose_allocation (GstBaseSink * bsink, GstQuery * query)
+   if (pool == NULL && need_pool) {
+   
+     GST_DEBUG_OBJECT (qt_sink, "create new pool");
+-    pool = gst_gl_buffer_pool_new (qt_sink->context);
++    pool = gst_gl_buffer_pool_new (context);
+ 
+     config = gst_buffer_pool_get_config (pool);
+     gst_buffer_pool_config_set_params (config, caps, size, 0, 0);
+@@ -534,26 +640,31 @@ gst_qt_sink_propose_allocation (GstBaseSink * bsink, GstQuery * query)
+   /* we also support various metadata */
+   gst_query_add_allocation_meta (query, GST_VIDEO_META_API_TYPE, 0);
+ 
+-  if (qt_sink->context->gl_vtable->FenceSync)
++  if (context->gl_vtable->FenceSync)
+     gst_query_add_allocation_meta (query, GST_GL_SYNC_META_API_TYPE, 0);
+ 
+-  return TRUE;
++  ret = TRUE;
++
++done:
++  gst_clear_object (&context);
++
++  return ret;
+ 
+   /* ERRORS */
+ no_caps:
+   {
+     GST_DEBUG_OBJECT (bsink, "no caps specified");
+-    return FALSE;
++    goto done;
+   }
+ invalid_caps:
+   {
+     GST_DEBUG_OBJECT (bsink, "invalid caps specified");
+-    return FALSE;
++    goto done;
+   }
+ config_failed:
+   {
+     GST_DEBUG_OBJECT (bsink, "failed setting config");
+-    return FALSE;
++    goto done;
+   }
+ }
+ 
+diff --git a/subprojects/gst-plugins-good/ext/qt/gstqtsink.h b/subprojects/gst-plugins-good/ext/qt/gstqtsink.h
+index 5bd85f34a1..978ea3804a 100644
+--- a/subprojects/gst-plugins-good/ext/qt/gstqtsink.h
++++ b/subprojects/gst-plugins-good/ext/qt/gstqtsink.h
+@@ -57,6 +57,8 @@ struct _GstQtSink
+ 
+ GstQtSink *    gst_qt_sink_new (void);
+ 
++void           gst_qt_sink_invalidate_gl_resources (GstQtSink * qt_sink);
++
+ G_END_DECLS
+ 
+ #endif /* __GST_QT_SINK_H__ */
+diff --git a/subprojects/gst-plugins-good/ext/qt/qtitem.cc b/subprojects/gst-plugins-good/ext/qt/qtitem.cc
+index 6a6dad71d9..a27f3ed1cc 100644
+--- a/subprojects/gst-plugins-good/ext/qt/qtitem.cc
++++ b/subprojects/gst-plugins-good/ext/qt/qtitem.cc
+@@ -28,6 +28,7 @@
+ #include "qtitem.h"
+ #include "gstqsgmaterial.h"
+ #include "gstqtglutility.h"
++#include "gstqtsink.h"
+ 
+ #include <QtCore/QMutexLocker>
+ #include <QtCore/QPointer>
+@@ -80,6 +81,7 @@ struct _QtGLVideoItemPrivate
+   GstVideoRectangle v_rect;
+ 
+   gboolean initted;
++  gboolean context_lost;
+   GstGLDisplay *display;
+   QOpenGLContext *qt_context;
+   GstGLContext *other_context;
+@@ -294,6 +296,9 @@ QtGLVideoItem::updatePaintNode(QSGNode * oldNode,
+   GstBuffer *old_buffer;
+   gboolean was_bound = FALSE;
+ 
++  if (this->priv->context_lost && !this->rewrapGLContext ())
++    return oldNode;
++
+   if (!this->priv->initted)
+     return oldNode;
+ 
+@@ -742,6 +747,13 @@ QtGLVideoItem::onSceneGraphInitialized ()
+     return;
+   }
+ 
++  /* Qt can replace the platform context behind this object without emitting
++   * sceneGraphInvalidated().  Unique: we can be given the same object again. */
++  connect (this->priv->qt_context, SIGNAL (aboutToBeDestroyed ()), this,
++      SLOT (onGLContextAboutToBeDestroyed ()),
++      static_cast<Qt::ConnectionType> (Qt::DirectConnection |
++          Qt::UniqueConnection));
++
+   this->priv->initted = gst_qt_get_gl_wrapcontext (this->priv->display,
+       &this->priv->other_context, &this->priv->context);
+ 
+@@ -757,6 +769,61 @@ QtGLVideoItem::onSceneGraphInvalidated ()
+   GST_FIXME ("%p scene graph invalidated", this);
+ }
+ 
++void
++QtGLVideoItem::onGLContextAboutToBeDestroyed ()
++{
++  GST_DEBUG ("%p Qt GL context %p about to be destroyed", this,
++      this->priv->qt_context);
++
++  g_mutex_lock (&this->priv->lock);
++
++  if (this->priv->context) {
++    gst_object_unref (this->priv->context);
++    this->priv->context = NULL;
++  }
++
++  if (this->priv->other_context) {
++    /* clears GStreamer's thread-local current context, which is not a ref */
++    gst_gl_context_activate (this->priv->other_context, FALSE);
++    gst_object_unref (this->priv->other_context);
++    this->priv->other_context = NULL;
++  }
++
++  this->priv->qt_context = NULL;
++  this->priv->initted = FALSE;
++  this->priv->context_lost = TRUE;
++
++  g_mutex_unlock (&this->priv->lock);
++}
++
++gboolean
++QtGLVideoItem::rewrapGLContext ()
++{
++  GstElement *sink;
++
++  if (this->window () == NULL || this->window ()->openglContext () == NULL)
++    return FALSE;
++
++  this->onSceneGraphInitialized ();
++
++  if (!this->priv->initted)
++    return FALSE;
++
++  /* rebuilds priv->context, which gst_qt_get_gl_wrapcontext () leaves alone */
++  if (!this->proxy->initWinSys ())
++    return FALSE;
++
++  sink = GST_ELEMENT_CAST (g_weak_ref_get (&this->priv->sink));
++  if (sink) {
++    gst_qt_sink_invalidate_gl_resources (GST_QT_SINK (sink));
++    gst_object_unref (sink);
++  }
++
++  this->priv->context_lost = FALSE;
++
++  return TRUE;
++}
++
+ /*
+  * Retrieve and populate the GL context information from the current
+  * OpenGL context.
+diff --git a/subprojects/gst-plugins-good/ext/qt/qtitem.h b/subprojects/gst-plugins-good/ext/qt/qtitem.h
+index a755549006..722f48e094 100644
+--- a/subprojects/gst-plugins-good/ext/qt/qtitem.h
++++ b/subprojects/gst-plugins-good/ext/qt/qtitem.h
+@@ -102,6 +102,7 @@ private Q_SLOTS:
+     void handleWindowChanged(QQuickWindow * win);
+     void onSceneGraphInitialized();
+     void onSceneGraphInvalidated();
++    void onGLContextAboutToBeDestroyed();
+ 
+ protected:
+     QSGNode * updatePaintNode (QSGNode * oldNode, UpdatePaintNodeData * updatePaintNodeData) override;
+@@ -118,6 +119,8 @@ private:
+     void setViewportSize(const QSize &size);
+     void shareContext();
+ 
++    gboolean rewrapGLContext();
++
+     void fitStreamToAllocatedSize(GstVideoRectangle * result);
+     QPointF mapPointToStreamSize(QPointF);
+ 
